@@ -41,6 +41,7 @@ export default function Home() {
       console.log('Starting game with playerId:', playerId);
       setGameState('queue');
       
+      // Add a fallback for when API fails
       const result = await gameAPI.joinQueue(playerId);
       console.log('API result:', result);
       
@@ -72,12 +73,69 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Failed to join queue:', error);
-      setGameState('lobby');
+      console.log('Falling back to demo mode...');
+      
+      // Fallback: Start game immediately for demo
+      setGameState('queue');
+      setQueueTime(5);
+      
+      const queueInterval = setInterval(() => {
+        setQueueTime(prev => {
+          const newTime = prev - 1;
+          if (newTime <= 0) {
+            clearInterval(queueInterval);
+            setGameState('playing');
+            setTimeLeft(180);
+            setIsHuman(true);
+          }
+          return newTime;
+        });
+      }, 1000);
     }
   };
 
   const sendMessage = async () => {
-    if (!currentMessage.trim() || !sessionId) return;
+    if (!currentMessage.trim()) return;
+    
+    // If no sessionId (API failed), create demo messages
+    if (!sessionId) {
+      const newMessage = {
+        id: Date.now().toString(),
+        playerId: playerId,
+        content: currentMessage,
+        timestamp: Date.now()
+      };
+      
+      setMessages(prev => [...prev, newMessage]);
+      setCurrentMessage('');
+      
+      // Add AI response after 1-2 seconds
+      setTimeout(() => {
+        const aiResponses = [
+          "hey there! hows your day going?",
+          "oh cool, tell me more about that",
+          "thats interesting! what made you think that?",
+          "i can relate to that feeling",
+          "wait really? thats wild",
+          "hmm idk about that, seems sketchy",
+          "thats awesome! im curious about your take",
+          "yeah i know what you mean its annoying",
+          "thats pretty cool how did that happen?",
+          "i feel you on that one"
+        ];
+        
+        const aiResponse = {
+          id: (Date.now() + 1).toString(),
+          playerId: 'bot_demo',
+          content: aiResponses[Math.floor(Math.random() * aiResponses.length)],
+          timestamp: Date.now() + 1000
+        };
+        
+        setMessages(prev => [...prev, aiResponse]);
+      }, 1000 + Math.random() * 1000);
+      
+      return;
+    }
     
     try {
       const result = await gameAPI.sendMessage(sessionId, playerId, currentMessage);
@@ -91,9 +149,15 @@ export default function Home() {
   };
 
   const makeGuess = async (choice: 'human' | 'bot') => {
-    if (!sessionId) return;
-    
     setGuess(choice);
+    
+    // If no sessionId (API failed), show demo results
+    if (!sessionId) {
+      setScore(1); // Demo score
+      setGameState('results');
+      return;
+    }
+    
     try {
       const result = await gameAPI.makeGuess(sessionId, playerId, choice);
       if (result.success) {
@@ -102,6 +166,9 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Failed to make guess:', error);
+      // Fallback to demo results
+      setScore(1);
+      setGameState('results');
     }
   };
 
