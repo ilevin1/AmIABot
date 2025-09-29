@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSocket } from '@/lib/socket';
+import { gameAPI } from '@/lib/api';
 import { GameSession, Player, Message } from '@/types/game';
 
 export default function Home() {
@@ -11,40 +11,13 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [session, setSession] = useState<GameSession | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [playerId] = useState(() => `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [guess, setGuess] = useState<'human' | 'bot' | null>(null);
   const [score, setScore] = useState(0);
   const [isHuman, setIsHuman] = useState(false);
 
-  useEffect(() => {
-    const socket = getSocket();
-
-    socket.on('gameStart', (gameSession: GameSession) => {
-      setSession(gameSession);
-      setGameState('playing');
-      setTimeLeft(180);
-      setIsHuman(gameSession.player1.id === socket.id);
-    });
-
-    socket.on('message', (message: Message) => {
-      setMessages(prev => [...prev, message]);
-    });
-
-    socket.on('gameEnd', (results: any) => {
-      setGameState('results');
-      setScore(results.score);
-    });
-
-    socket.on('queueUpdate', (timeLeft: number) => {
-      setQueueTime(timeLeft);
-    });
-
-    return () => {
-      socket.off('gameStart');
-      socket.off('message');
-      socket.off('gameEnd');
-      socket.off('queueUpdate');
-    };
-  }, []);
+  // No need for socket effects anymore
 
   useEffect(() => {
     if (gameState === 'playing' && timeLeft > 0) {
@@ -63,24 +36,62 @@ export default function Home() {
     }
   }, [gameState, queueTime]);
 
-  const startGame = () => {
-    const socket = getSocket();
-    socket.emit('joinQueue');
-    setGameState('queue');
+  const startGame = async () => {
+    try {
+      setGameState('queue');
+      const result = await gameAPI.joinQueue(playerId);
+      
+      if (result.success) {
+        setSessionId(result.sessionId);
+        
+        // Start queue countdown
+        let remainingTime = result.queueTime;
+        const queueInterval = setInterval(() => {
+          remainingTime--;
+          setQueueTime(remainingTime);
+          
+          if (remainingTime <= 0) {
+            clearInterval(queueInterval);
+            // Start the game
+            setGameState('playing');
+            setTimeLeft(180);
+            setIsHuman(true);
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to join queue:', error);
+      setGameState('lobby');
+    }
   };
 
-  const sendMessage = () => {
-    if (!currentMessage.trim()) return;
+  const sendMessage = async () => {
+    if (!currentMessage.trim() || !sessionId) return;
     
-    const socket = getSocket();
-    socket.emit('sendMessage', currentMessage);
-    setCurrentMessage('');
+    try {
+      const result = await gameAPI.sendMessage(sessionId, playerId, currentMessage);
+      if (result.success) {
+        setMessages(result.messages);
+        setCurrentMessage('');
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
   };
 
-  const makeGuess = (choice: 'human' | 'bot') => {
+  const makeGuess = async (choice: 'human' | 'bot') => {
+    if (!sessionId) return;
+    
     setGuess(choice);
-    const socket = getSocket();
-    socket.emit('makeGuess', choice);
+    try {
+      const result = await gameAPI.makeGuess(sessionId, playerId, choice);
+      if (result.success) {
+        setScore(result.score);
+        setGameState('results');
+      }
+    } catch (error) {
+      console.error('Failed to make guess:', error);
+    }
   };
 
   const playAgain = () => {
@@ -88,6 +99,7 @@ export default function Home() {
     setMessages([]);
     setGuess(null);
     setSession(null);
+    setSessionId(null);
     setTimeLeft(180);
     setQueueTime(30);
   };
@@ -145,7 +157,7 @@ export default function Home() {
               
               <div className="h-96 overflow-y-auto border rounded-lg p-4 mb-4 bg-gray-50">
                 {messages.map((msg) => {
-                  const isMyMessage = msg.playerId === session?.player1.id;
+                  const isMyMessage = msg.playerId === playerId;
                   return (
                     <div
                       key={msg.id}
