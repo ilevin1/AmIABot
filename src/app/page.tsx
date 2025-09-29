@@ -49,9 +49,9 @@ export default function Home() {
         setSessionId(result.sessionId);
         console.log('✅ API SUCCESS - Using real AI!');
         
-        // Start queue countdown
+        // Start queue countdown (always shows 30 seconds)
         setQueueTime(result.queueTime);
-        console.log('Starting countdown with:', result.queueTime, 'seconds');
+        console.log('Starting countdown with:', result.queueTime, 'seconds, actual start in:', result.actualStartTime, 'seconds');
         
         const queueInterval = setInterval(() => {
           setQueueTime(prev => {
@@ -68,6 +68,15 @@ export default function Home() {
             return newTime;
           });
         }, 1000);
+        
+        // Set a timer for the actual start time
+        setTimeout(() => {
+          console.log('🎮 ACTUAL GAME START!');
+          clearInterval(queueInterval); // Stop the countdown first
+          setGameState('playing');
+          setTimeLeft(180);
+          setIsHuman(true);
+        }, result.actualStartTime * 1000);
       } else {
         console.error('API returned success: false');
         setGameState('lobby');
@@ -76,9 +85,10 @@ export default function Home() {
       console.error('❌ API FAILED:', error);
       console.log('Falling back to demo mode...');
       
-      // Fallback: Start game immediately for demo
+      // Fallback: Start game with fixed timing for demo
       setGameState('queue');
-      setQueueTime(5);
+      setQueueTime(30); // Always show 30 seconds
+      const actualStartTime = 25; // Always start at 25 seconds (5 seconds into countdown)
       
       const queueInterval = setInterval(() => {
         setQueueTime(prev => {
@@ -92,6 +102,15 @@ export default function Home() {
           return newTime;
         });
       }, 1000);
+      
+      // Set a timer for the actual start time
+      setTimeout(() => {
+        console.log('🎮 DEMO GAME START!');
+        clearInterval(queueInterval); // Stop the countdown first
+        setGameState('playing');
+        setTimeLeft(180);
+        setIsHuman(true);
+      }, actualStartTime * 1000);
     }
   };
 

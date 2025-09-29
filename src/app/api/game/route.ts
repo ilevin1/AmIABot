@@ -48,7 +48,8 @@ async function handleJoinQueue(playerId: string) {
     startTime: Date.now(),
     messages: [],
     status: 'active',
-    queueTime: Math.floor(Math.random() * 21) + 5 // Random 5-25 seconds
+    queueTime: 30, // Always show 30 seconds
+    actualStartTime: 25 // Always start at 25 seconds (5 seconds into countdown)
   };
 
   gameSessions.set(sessionId, session);
@@ -56,7 +57,8 @@ async function handleJoinQueue(playerId: string) {
   return NextResponse.json({ 
     success: true, 
     sessionId,
-    queueTime: session.queueTime 
+    queueTime: session.queueTime,
+    actualStartTime: session.actualStartTime
   });
 }
 
@@ -76,7 +78,7 @@ async function handleSendMessage(sessionId: string, playerId: string, content: s
 
   session.messages.push(message);
 
-  // Generate AI response
+  // Generate AI response with human-like delay
   try {
     let aiService = aiServices.get(sessionId);
     if (!aiService) {
@@ -85,11 +87,16 @@ async function handleSendMessage(sessionId: string, playerId: string, content: s
     }
     
     const aiResponse = await aiService.generateResponse(content);
+    
+    // Add human-like delay (1-4 seconds)
+    const delay = Math.floor(Math.random() * 3000) + 1000; // 1-4 seconds
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
     const aiMessage = {
       id: (Date.now() + 1).toString(),
       playerId: session.player2.id,
       content: aiResponse,
-      timestamp: Date.now() + 1000
+      timestamp: Date.now() + delay
     };
     
     session.messages.push(aiMessage);
