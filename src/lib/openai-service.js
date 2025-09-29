@@ -68,7 +68,7 @@ Sound like a real person texting, not an AI!`
       const completion = await openai.chat.completions.create({
         model: 'gpt-5-nano-2025-08-07',
         messages: this.conversationHistory,
-        max_tokens: 150,
+        max_completion_tokens: 150,
         temperature: 0.8, // Higher temperature for more varied responses
         presence_penalty: 0.6, // Encourage new topics
         frequency_penalty: 0.3, // Reduce repetition
