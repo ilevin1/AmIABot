@@ -7,7 +7,7 @@ import { GameSession, Player, Message } from '@/types/game';
 export default function Home() {
   const [gameState, setGameState] = useState<'lobby' | 'queue' | 'playing' | 'results'>('lobby');
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes
-  const [queueTime, setQueueTime] = useState(30);
+  const [queueTime, setQueueTime] = useState(5);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [session, setSession] = useState<GameSession | null>(null);
@@ -40,6 +40,10 @@ export default function Home() {
     try {
       console.log('Starting game with playerId:', playerId);
       setGameState('queue');
+      
+      // Reset any previous session data
+      setSessionId(null);
+      setMessages([]);
       
       // Add a fallback for when API fails
       const result = await gameAPI.joinQueue(playerId);
@@ -202,7 +206,7 @@ export default function Home() {
     setSession(null);
     setSessionId(null);
     setTimeLeft(180);
-    setQueueTime(30);
+    setQueueTime(5);
   };
 
   const formatTime = (seconds: number) => {
