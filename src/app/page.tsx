@@ -38,26 +38,37 @@ export default function Home() {
 
   const startGame = async () => {
     try {
+      console.log('Starting game with playerId:', playerId);
       setGameState('queue');
+      
       const result = await gameAPI.joinQueue(playerId);
+      console.log('API result:', result);
       
       if (result.success) {
         setSessionId(result.sessionId);
         
         // Start queue countdown
-        let remainingTime = result.queueTime;
+        setQueueTime(result.queueTime);
+        console.log('Starting countdown with:', result.queueTime, 'seconds');
+        
         const queueInterval = setInterval(() => {
-          remainingTime--;
-          setQueueTime(remainingTime);
-          
-          if (remainingTime <= 0) {
-            clearInterval(queueInterval);
-            // Start the game
-            setGameState('playing');
-            setTimeLeft(180);
-            setIsHuman(true);
-          }
+          setQueueTime(prev => {
+            const newTime = prev - 1;
+            console.log('Queue time:', newTime);
+            if (newTime <= 0) {
+              clearInterval(queueInterval);
+              console.log('Starting game!');
+              // Start the game
+              setGameState('playing');
+              setTimeLeft(180);
+              setIsHuman(true);
+            }
+            return newTime;
+          });
         }, 1000);
+      } else {
+        console.error('API returned success: false');
+        setGameState('lobby');
       }
     } catch (error) {
       console.error('Failed to join queue:', error);
