@@ -47,6 +47,7 @@ export default function Home() {
       
       if (result.success) {
         setSessionId(result.sessionId);
+        console.log('✅ API SUCCESS - Using real AI!');
         
         // Start queue countdown
         setQueueTime(result.queueTime);
@@ -72,7 +73,7 @@ export default function Home() {
         setGameState('lobby');
       }
     } catch (error) {
-      console.error('Failed to join queue:', error);
+      console.error('❌ API FAILED:', error);
       console.log('Falling back to demo mode...');
       
       // Fallback: Start game immediately for demo
@@ -99,6 +100,7 @@ export default function Home() {
     
     // If no sessionId (API failed), create demo messages
     if (!sessionId) {
+      console.log('❌ NO SESSION ID - Using demo AI responses');
       const newMessage = {
         id: Date.now().toString(),
         playerId: playerId,
@@ -138,13 +140,15 @@ export default function Home() {
     }
     
     try {
+      console.log('✅ SENDING TO API - Using real AI!');
       const result = await gameAPI.sendMessage(sessionId, playerId, currentMessage);
       if (result.success) {
         setMessages(result.messages);
         setCurrentMessage('');
+        console.log('✅ API RESPONSE SUCCESS');
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('❌ API SEND MESSAGE FAILED:', error);
     }
   };
 
