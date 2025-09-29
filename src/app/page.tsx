@@ -87,8 +87,8 @@ export default function Home() {
       
       // Fallback: Start game with fixed timing for demo
       setGameState('queue');
-      setQueueTime(30); // Always show 30 seconds
-      const actualStartTime = 25; // Always start at 25 seconds (5 seconds into countdown)
+      setQueueTime(5); // Always show 5 seconds
+      const actualStartTime = 5; // Always start at 5 seconds
       
       const queueInterval = setInterval(() => {
         setQueueTime(prev => {

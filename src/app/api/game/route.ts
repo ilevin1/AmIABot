@@ -48,8 +48,8 @@ async function handleJoinQueue(playerId: string) {
     startTime: Date.now(),
     messages: [],
     status: 'active',
-    queueTime: 30, // Always show 30 seconds
-    actualStartTime: 25 // Always start at 25 seconds (5 seconds into countdown)
+    queueTime: 5, // Always show 5 seconds
+    actualStartTime: 5 // Always start at 5 seconds
   };
 
   gameSessions.set(sessionId, session);
