@@ -57,6 +57,20 @@ src/
 
 ## Deployment
 
+### Deploy to Render (Recommended)
+
+1. Push your code to GitHub
+2. Go to [render.com](https://render.com) and sign up
+3. Click "New +" → "Web Service"
+4. Connect your GitHub repository
+5. Use these settings:
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+   - **Environment**: `Node`
+   - **Plan**: `Free`
+6. Add environment variable: `OPENAI_API_KEY` = your API key
+7. Deploy!
+
 ### Deploy to Vercel
 
 1. Push your code to GitHub
@@ -65,7 +79,7 @@ src/
 
 ### Environment Variables
 
-No environment variables needed for MVP.
+- `OPENAI_API_KEY` - Your OpenAI API key (required for AI responses)
 
 ## Development Notes
 
