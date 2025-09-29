@@ -1,0 +1,229 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { getSocket } from '@/lib/socket';
+import { GameSession, Player, Message } from '@/types/game';
+
+export default function Home() {
+  const [gameState, setGameState] = useState<'lobby' | 'queue' | 'playing' | 'results'>('lobby');
+  const [timeLeft, setTimeLeft] = useState(180); // 3 minutes
+  const [queueTime, setQueueTime] = useState(30);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [session, setSession] = useState<GameSession | null>(null);
+  const [guess, setGuess] = useState<'human' | 'bot' | null>(null);
+  const [score, setScore] = useState(0);
+  const [isHuman, setIsHuman] = useState(false);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    socket.on('gameStart', (gameSession: GameSession) => {
+      setSession(gameSession);
+      setGameState('playing');
+      setTimeLeft(180);
+      setIsHuman(gameSession.player1.id === socket.id);
+    });
+
+    socket.on('message', (message: Message) => {
+      setMessages(prev => [...prev, message]);
+    });
+
+    socket.on('gameEnd', (results: any) => {
+      setGameState('results');
+      setScore(results.score);
+    });
+
+    socket.on('queueUpdate', (timeLeft: number) => {
+      setQueueTime(timeLeft);
+    });
+
+    return () => {
+      socket.off('gameStart');
+      socket.off('message');
+      socket.off('gameEnd');
+      socket.off('queueUpdate');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gameState === 'playing' && timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (gameState === 'playing' && timeLeft === 0) {
+      // Game ended, show results
+      setGameState('results');
+    }
+  }, [gameState, timeLeft]);
+
+  useEffect(() => {
+    if (gameState === 'queue' && queueTime > 0) {
+      const timer = setTimeout(() => setQueueTime(queueTime - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, queueTime]);
+
+  const startGame = () => {
+    const socket = getSocket();
+    socket.emit('joinQueue');
+    setGameState('queue');
+  };
+
+  const sendMessage = () => {
+    if (!currentMessage.trim()) return;
+    
+    const socket = getSocket();
+    socket.emit('sendMessage', currentMessage);
+    setCurrentMessage('');
+  };
+
+  const makeGuess = (choice: 'human' | 'bot') => {
+    setGuess(choice);
+    const socket = getSocket();
+    socket.emit('makeGuess', choice);
+  };
+
+  const playAgain = () => {
+    setGameState('lobby');
+    setMessages([]);
+    setGuess(null);
+    setSession(null);
+    setTimeLeft(180);
+    setQueueTime(30);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-8">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">AmIABot</h1>
+          <p className="text-lg text-gray-600">Can you tell the difference between a human and AI?</p>
+        </header>
+
+        {gameState === 'lobby' && (
+          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-2xl font-semibold mb-4">Welcome to the Turing Test!</h2>
+            <p className="text-gray-600 mb-6">
+              You'll have 3 minutes to chat and determine if your partner is human or AI.
+            </p>
+            <button
+              onClick={startGame}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors"
+            >
+              Start Game
+            </button>
+          </div>
+        )}
+
+        {gameState === 'queue' && (
+          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-2xl font-semibold mb-4">Finding a Partner...</h2>
+            <div className="text-6xl font-bold text-blue-600 mb-4">
+              {queueTime}
+            </div>
+            <p className="text-gray-600">
+              {queueTime > 0 ? 'Searching for another player...' : 'Game starting soon!'}
+            </p>
+          </div>
+        )}
+
+        {gameState === 'playing' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Chat Session</h2>
+                <div className="text-lg font-bold text-red-600">
+                  {formatTime(timeLeft)}
+                </div>
+              </div>
+              
+              <div className="h-96 overflow-y-auto border rounded-lg p-4 mb-4 bg-gray-50">
+                {messages.map((msg) => {
+                  const isMyMessage = msg.playerId === session?.player1.id;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`mb-3 flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-xs px-4 py-2 rounded-2xl ${
+                          isMyMessage
+                            ? 'bg-blue-500 text-white rounded-br-md'
+                            : 'bg-gray-300 text-gray-800 rounded-bl-md'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Type your message..."
+                  className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={sendMessage}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+                >
+                  Send
+                </button>
+              </div>
+
+              {timeLeft <= 30 && !guess && (
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <h3 className="font-semibold mb-2">Time's almost up! Make your guess:</h3>
+                  <div className="flex gap-4 justify-center">
+                    <button
+                      onClick={() => makeGuess('human')}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors"
+                    >
+                      Human
+                    </button>
+                    <button
+                      onClick={() => makeGuess('bot')}
+                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition-colors"
+                    >
+                      AI Bot
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {gameState === 'results' && (
+          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-2xl font-semibold mb-4">Game Over!</h2>
+            <div className="text-4xl font-bold text-blue-600 mb-4">
+              Score: {score}
+            </div>
+            <p className="text-gray-600 mb-6">
+              {guess === 'human' ? 'You guessed: Human' : 'You guessed: AI Bot'}
+            </p>
+            <button
+              onClick={playAgain}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors"
+            >
+              Play Again
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
